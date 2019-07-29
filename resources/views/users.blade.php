@@ -20,7 +20,12 @@
                     @endif
                 </div>
                 <div class="w-1/3 px-3 py-4 text-gray-800">{{ $user->club->name }}</div>
-                <div class="w-1/3 px-3 py-4 text-gray-800">{{ $user->last_trip_at->diffForHumans() }}</div>
+                <div class="w-1/3 px-3 py-4 text-gray-800">
+                    <a class="hover:underline" href="/trips/{{ $user->lastTrip->id }}">
+                        {{ $user->lastTrip->went_at->diffForHumans() }}
+                    </a>
+                    <span class="text-sm text-gray-600">({{ $user->lastTrip->lake }})</span>
+                </div>
             </div>
         @endforeach
     </div>

@@ -35,7 +35,6 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'last_trip_at' => 'datetime',
     ];
 
     public function club()
@@ -72,14 +71,19 @@ class User extends Authenticatable
         });
     }
 
-    public function scopeWithLastTripDate($query)
+    public function lastTrip()
     {
-        $query->addSubSelect('last_trip_at', function ($query) {
-            $query->select('went_at')
+        return $this->belongsTo(Trip::class);
+    }
+
+    public function scopeWithLastTrip($query)
+    {
+        $query->addSubSelect('last_trip_id', function ($query) {
+            $query->select('id')
                 ->from('trips')
                 ->whereColumn('user_id', 'users.id')
                 ->latest('went_at')
                 ->limit(1);
-        });
+        })->with('lastTrip');
     }
 }
