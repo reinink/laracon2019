@@ -7,6 +7,7 @@
         <div class="flex">
             <div class="w-1/3 px-3 pt-6 pb-3 text-2xl text-green-600 font-semibold">Name</div>
             <div class="w-1/3 px-3 pt-6 pb-3 text-2xl text-green-600 font-semibold">Club</div>
+            <div class="w-1/3 px-3 pt-6 pb-3 text-2xl text-green-600 font-semibold">Last Trip</div>
         </div>
         @foreach ($users as $user)
             <div class="flex border-t">
@@ -19,6 +20,7 @@
                     @endif
                 </div>
                 <div class="w-1/3 px-3 py-4 text-gray-800">{{ $user->club->name }}</div>
+                <div class="w-1/3 px-3 py-4 text-gray-800">{{ $user->last_trip_at->diffForHumans() }}</div>
             </div>
         @endforeach
     </div>
