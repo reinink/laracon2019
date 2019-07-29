@@ -8,6 +8,7 @@ Route::get('/', function () {
 
     $users = User::with('club')
         ->visibleTo(Auth::user())
+        ->orderByBuddiesFirst(Auth::user())
         ->orderBy('name')
         ->paginate(10);
 
