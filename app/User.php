@@ -51,4 +51,12 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(User::class, 'buddies', 'user_id', 'buddy_id')->withTimestamps();
     }
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        $query->where(function ($query) use ($user) {
+            $query->where('club_id', $user->club_id)
+                ->orWhereIn('id', $user->buddies->pluck('id'));
+        });
+    }
 }

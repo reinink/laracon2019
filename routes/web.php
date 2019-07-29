@@ -7,6 +7,7 @@ Route::get('/', function () {
     Auth::login(User::find(1)->load('club', 'buddies'));
 
     $users = User::with('club')
+        ->visibleTo(Auth::user())
         ->orderBy('name')
         ->paginate(10);
 
