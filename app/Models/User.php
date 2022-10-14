@@ -57,38 +57,38 @@ class User extends Authenticatable
         return $this->belongsToMany(User::class, 'buddies', 'user_id', 'buddy_id')->withTimestamps();
     }
 
-    public function scopeVisibleTo($query, User $user)
-    {
-        $query->where(function ($query) use ($user) {
-            $query->where('club_id', $user->club_id)
-                ->orWhereIn('id', $user->buddies->pluck('id'));
-        });
-    }
-
-    public function scopeOrderByBuddiesFirst($query, User $user)
-    {
-        $query->orderBySub(function ($query) use ($user) {
-            $query->selectRaw('true')
-                ->from('buddies')
-                ->whereColumn('buddies.buddy_id', 'users.id')
-                ->where('user_id', $user->id)
-                ->limit(1);
-        });
-    }
-
-    public function lastTrip()
-    {
-        return $this->belongsTo(Trip::class);
-    }
-
-    public function scopeWithLastTrip($query)
-    {
-        $query->addSubSelect('last_trip_id', function ($query) {
-            $query->select('id')
-                ->from('trips')
-                ->whereColumn('user_id', 'users.id')
-                ->latest('went_at')
-                ->limit(1);
-        })->with('lastTrip');
-    }
+//    public function scopeVisibleTo($query, User $user)
+//    {
+//        $query->where(function ($query) use ($user) {
+//            $query->where('club_id', $user->club_id)
+//                ->orWhereIn('id', $user->buddies->pluck('id'));
+//        });
+//    }
+//
+//    public function scopeOrderByBuddiesFirst($query, User $user)
+//    {
+//        $query->orderBySub(function ($query) use ($user) {
+//            $query->selectRaw('true')
+//                ->from('buddies')
+//                ->whereColumn('buddies.buddy_id', 'users.id')
+//                ->where('user_id', $user->id)
+//                ->limit(1);
+//        });
+//    }
+//
+//    public function lastTrip()
+//    {
+//        return $this->belongsTo(Trip::class);
+//    }
+//
+//    public function scopeWithLastTrip($query)
+//    {
+//        $query->addSubSelect('last_trip_id', function ($query) {
+//            $query->select('id')
+//                ->from('trips')
+//                ->whereColumn('user_id', 'users.id')
+//                ->latest('went_at')
+//                ->limit(1);
+//        })->with('lastTrip');
+//    }
 }
