@@ -2,12 +2,18 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @property integer id
+ * @property integer club_id
+ * @property Collection buddies
+ */
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
@@ -40,6 +46,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'is_friend_of_user' => 'boolean',
     ];
 
     public function club()
@@ -52,43 +59,41 @@ class User extends Authenticatable
         return $this->hasMany(Trip::class);
     }
 
-    public function buddies()
+    public function friends()
     {
-        return $this->belongsToMany(User::class, 'buddies', 'user_id', 'buddy_id')->withTimestamps();
+        return $this->belongsToMany(related: User::class, table: 'friends', foreignPivotKey: 'user_id', relatedPivotKey: 'friend_id')->withTimestamps();
     }
 
-//    public function scopeVisibleTo($query, User $user)
-//    {
-//        $query->where(function ($query) use ($user) {
-//            $query->where('club_id', $user->club_id)
-//                ->orWhereIn('id', $user->buddies->pluck('id'));
-//        });
-//    }
-//
-//    public function scopeOrderByBuddiesFirst($query, User $user)
-//    {
-//        $query->orderBySub(function ($query) use ($user) {
-//            $query->selectRaw('true')
-//                ->from('buddies')
-//                ->whereColumn('buddies.buddy_id', 'users.id')
-//                ->where('user_id', $user->id)
-//                ->limit(1);
-//        });
-//    }
-//
-//    public function lastTrip()
-//    {
-//        return $this->belongsTo(Trip::class);
-//    }
-//
-//    public function scopeWithLastTrip($query)
-//    {
-//        $query->addSubSelect('last_trip_id', function ($query) {
-//            $query->select('id')
-//                ->from('trips')
-//                ->whereColumn('user_id', 'users.id')
-//                ->latest('went_at')
-//                ->limit(1);
-//        })->with('lastTrip');
-//    }
+
+    /**
+     * @param Builder $query
+     * @param User $user
+     * @return void
+     */
+    public function scopeVisibleTo($query, User $user)
+    {
+        // select * from employees
+        $query->where(function ($query) use ($user) {
+            $query->where('club_id', $user->club_id)
+                ->orWhereIn('id', $user->friends()->select('friend_id'));
+        });
+    }
+
+    /**
+     * @param Builder $query
+     * @param User $user
+     * @return void
+     */
+    public function scopeWithIsFriendOfUser($query, User $user)
+    {
+        $query->addSelect([
+            'is_friend_of_user' => Friend::query()
+                // if count gives us a value bigger than one, it means that that particular row (aka user) is friend of the user (parameter)
+                // buddies [user_id, buddy_id].
+                ->selectRaw('count(1)')
+                // users.id is visible because come in $query object
+                ->whereColumn(first: 'users.id', operator: '=', second: 'friends.friend_id')
+                ->where('friends.user_id', $user->id)
+        ]);
+    }
 }

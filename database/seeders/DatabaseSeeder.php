@@ -21,20 +21,25 @@ class DatabaseSeeder extends Seeder
         $theNorthernPikes = Club::create(['name' => 'The Northern Pikes']);
         $bassCatchersUnited = Club::create(['name' => 'Bass Catchers United']);
 
+        User::factory(999)->create();
+
+        /** @var User $user */
         $user = User::factory()->create([
             'name' => 'Lloyd Montgomery',
             'club_id' => $theNorthernPikes->id,
             'email' => 'lloyd@example.com',
-        ])->buddies()->sync([
-            User::factory()->create(['name' => 'Rusty Coleman', 'club_id' => $theNorthernPikes->id])->id,
-            User::factory()->create(['name' => 'Jed Davenport', 'club_id' => $daLocalsKnow->id])->id,
-            User::factory()->create(['name' => 'Jackson Lee', 'club_id' => $theNorthernPikes->id])->id,
-            User::factory()->create(['name' => 'Zeb Stansfield', 'club_id' => $bassCatchersUnited->id])->id,
-            User::factory()->create(['name' => 'Ottis Grayson', 'club_id' => $theNorthernPikes->id])->id,
-            User::factory()->create(['name' => 'Bob Stafford', 'club_id' => $bassCatchersUnited->id])->id,
         ]);
 
-        User::factory(993)->create();
+        $i = 0;
+        while ($i <= 25) {
+            $user->friends()->saveMany([
+                User::whereClubId($daLocalsKnow->id)->whereNotIn('id', $user->friends()->select('friend_id as id'))->inRandomOrder()->first(),
+                User::whereClubId($freshwaterFolk->id)->whereNotIn('id', $user->friends()->select('friend_id as id'))->inRandomOrder()->first(),
+                User::whereClubId($theNorthernPikes->id)->whereNotIn('id', $user->friends()->select('friend_id as id'))->inRandomOrder()->first(),
+                User::whereClubId($bassCatchersUnited->id)->whereNotIn('id', $user->friends()->select('friend_id as id'))->inRandomOrder()->first(),
+            ]);
+            $i++;
+        }
 
         User::all()->each(function ($user) {
             $user->trips()->saveMany(Trip::factory(250)->make());
