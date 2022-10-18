@@ -8,4 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class Trip extends Model
 {
     use HasFactory;
+
+    protected $casts = [
+        'went_at' => 'datetime',
+    ];
 }

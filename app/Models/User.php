@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -62,38 +61,5 @@ class User extends Authenticatable
     public function friends()
     {
         return $this->belongsToMany(related: User::class, table: 'friends', foreignPivotKey: 'user_id', relatedPivotKey: 'friend_id')->withTimestamps();
-    }
-
-
-    /**
-     * @param Builder $query
-     * @param User $user
-     * @return void
-     */
-    public function scopeVisibleTo($query, User $user)
-    {
-        // select * from employees
-        $query->where(function ($query) use ($user) {
-            $query->where('club_id', $user->club_id)
-                ->orWhereIn('id', $user->friends()->select('friend_id'));
-        });
-    }
-
-    /**
-     * @param Builder $query
-     * @param User $user
-     * @return void
-     */
-    public function scopeWithIsFriendOfUser($query, User $user)
-    {
-        $query->addSelect([
-            'is_friend_of_user' => Friend::query()
-                // if count gives us a value bigger than one, it means that that particular row (aka user) is friend of the user (parameter)
-                // buddies [user_id, buddy_id].
-                ->selectRaw('count(1)')
-                // users.id is visible because come in $query object
-                ->whereColumn(first: 'users.id', operator: '=', second: 'friends.friend_id')
-                ->where('friends.user_id', $user->id)
-        ]);
     }
 }
