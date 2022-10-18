@@ -1,66 +1,289 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Laravel Talk based on [Jonathan Reinink - Eloquent Performance Patterns (Laracon 2019)](https://www.youtube.com/watch?v=IBUXXErAtuk&t=1020s)
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## What about the product (it's just an MVP)
 
-## About Laravel
+We have a social media oriented to people that love fishing. In our app people have a user, belongs to a club and have
+several friends.
+And also, as user you can save details of trips that made for fishing (when was and at where).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## What about the tech side
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+* Laravel 9
+* Breeze
+* Sail
+* LaravelDebugBar
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## What about the data
 
-## Learning Laravel
+```sql
+Select (select count(1) from users)   users,
+       (select count(1) from friends) friends,
+       (select count(1) from trips)   trips
+  ```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Client's requirements
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## 1. What a user can see
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+An user should only be able to see people on the same club and also own friends.
 
-## Laravel Sponsors
+* Alternative a): implements a policy and
+  follow [Authorization](https://laravel.com/docs/9.x/authorization#main-content) strategy of laravel
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+  Add new user policy (`sail artisan make:policy UserPolicy`)
 
-### Premium Partners
+```php
+public function view(User $user, User $other)
+{
+    return $user->club_id === $other->club_id || $user->buddies->contains($other);
+}
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+    Meanwhile in the controller
 
-## Contributing
+```php
+->get()
+->filter(function ($user) {
+    return Auth::user()->can('view', $user);
+})
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+    Note: Dashboard contoller has a call to `paginate` method. This method doesnt exists on collections. Look AppServiceProvider to see the 
+    macro that allows to keep the signature for this example.
 
-## Code of Conduct
+Create "visibleTo" User model scope:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+* Alternative b) Implement some sort of baseAccessControl (like in common core) in there we could get the list of
+  visible users already filtered
 
-## Security Vulnerabilities
+```php
+public function scopeVisibleTo($query, User $user)
+{
+    $query->where(function ($query) use ($user) {
+        $query->where('club_id', $user->club_id)
+            ->orWhereIn('id', $user->friends()->select('friend_id'));
+    });
+}
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+    Meanwhile in the controller
 
-## License
+```php
+->visibleTo(Auth::user())
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 2. Show the club name and mark friends in the list
+
+For every user show the name of the club where it belongs to; and also a user can see a lot of members, so it should be
+able to
+distinguish who is a friend and who it's just a member of the same club.
+
+* a) Club name: use [eager loading](https://laravel.com/docs/9.x/eloquent-relationships#eager-loading) vs lazy loading
+
+```html
+<!-- header -->
+<div class="w-1/3 px-3 pt-6 pb-3 text-2xl text-indigo-600 font-semibold">Club</div>
+
+<!-- row -->
+<div class="w-1/3 px-3 py-4 text-gray-800">{{ $user->club->name }}</div>
+
+```
+
+* b) A label to mark if user in the list is a friend: this is the same thing but more complex in terms of performance.
+* First approach it's to solve this in the blade.
+
+```php
+@if (Auth::user()->friends->contains($user))
+    <div class="ml-2 px-2 py-1 text-xs text-yellow-800 font-semibold bg-yellow-500 rounded-full">
+        Friend
+    </div>
+@endif
+```
+
+* Second approach it's let the SQL side to solve this problem for us. First thing it's to be clear what we want to show.
+* The goal is to mark when a user is part of the list of friends of a particular user.
+  In other words, if exists a relation between a some user (user displayed in the list) and the particular one
+  user (`Auth::user()`).
+
+```php
+/**
+ * This can be read as: the friends table has two keys. The user_id key points to the owner of the relation,
+ * somethings called parent (who says: this is my list of friends). 
+ * And the second key points the the child or the belonged side (who says I am part of the list that belongs to who is identified by the first key)
+ */
+   public function friends()
+  {
+      return $this->belongsToMany(related: User::class, table: 'friends', foreignPivotKey: 'user_id', relatedPivotKey: 'friend_id')->withTimestamps();
+  }
+
+
+```
+
+We could write a sql constraint that allow us to say: for every user add a column that indicates if is friend of some
+user:
+
+```php
+public function scopeWithIsFriendOfUser($query, User $user)
+{
+    // add a new column to the result set 
+    $query->addSelect([
+        'is_friend_of_user' => Friend::query()
+            // if count gives us a value bigger than one, it means that that particular row (aka user) is friend of the user (parameter)
+            // buddies [user_id, buddy_id].
+            ->selectRaw('count(1)')
+            // if the user is friend (second part of the relation) of ...
+            ->whereColumn(first: 'users.id', operator: '=', second: 'friends.friend_id')
+            // the owner of this relation (first part of the relation)
+            ->where('friends.user_id', $user->id)
+    ]);
+}
+```
+
+```php
+    // In the model casts attribute
+  'is_friend_of_user' => 'boolean',
+```
+
+In the blade
+
+```php
+@if ($user->is_friend_of_user)
+    <div class="ml-2 px-2 py-1 text-xs text-yellow-800 font-semibold bg-yellow-500 rounded-full">
+        Friend
+    </div>
+@endif
+
+```
+
+```php
+    // In the controller
+    ->withIsFriendOfUser(Auth::user())
+```
+
+* First alternative it's to show this info in the view by using the list of friends (eager/lazy loading)
+
+## 3. Sort by friends first
+
+```php
+ public function scopeOrderByFriendsFirst($query, User $user)
+{
+    $query->orderBy(function ($query) use ($user) {
+        $query
+            ->from('friends')
+            ->selectRaw('true')
+            ->whereColumn(first: 'friends.friend_id', operator: '=', second: 'users.id')
+            ->where('user_id', $user->id)
+            ->limit(1);
+    }, 'asc');
+}
+```
+
+```php
+->orderByBuddiesFirst(Auth::user())
+```
+
+## 4. Add last trip date
+
+```php
+<div class="w-1/3 px-3 pt-6 pb-3 text-2xl  text-indigo-600 font-semibold">Last Trip</div>
+<div class="w-1/3 px-3 py-4 text-gray-800">{{ $user->trips->sortByDesc('went_at')->first()->went_at->diffForHumans() }}</div>
+```
+
+```php
+$users = User::with('club', 'trips')
+```
+
+```php
+<div class="w-1/3 px-3 py-4 text-gray-800">{{ $user->trips()->latest('went_at')->first()->went_at->diffForHumans() }}</div>
+```
+
+```php
+$users = User::with('club')
+```
+
+```php
+public function scopeWithLastTripDate($query)
+{
+    $query->addSelect(['last_trip_at' =>
+        Trip::query()
+            ->select('went_at')
+            ->from('trips')
+            ->whereColumn('user_id', 'users.id')
+            ->latest('went_at')
+            ->limit(1)
+    ]);
+}
+```
+
+```php
+->withLastTripDate()
+```
+
+```php
+'last_trip_at' => 'datetime',
+```
+
+```php
+<div class="w-1/3 px-3 py-4 text-gray-800">{{ $user->last_trip_at->diffForHumans() }}</div>
+```
+
+## 5. Add last trip lake
+
+```php
+public function scopeWithLastTripLake($query)
+{
+    $query->addSubSelect('last_trip_lake', function ($query) {
+        $query->select('lake')
+            ->from('trips')
+            ->whereColumn('user_id', 'users.id')
+            ->latest('went_at')
+            ->limit(1);
+    });
+}
+```
+
+```php
+->withLastTripLake()
+```
+
+```php
+<div class="w-1/3 px-3 py-4 text-gray-800">
+    {{ $user->last_trip_at->diffForHumans() }}
+    <span class="text-sm text-gray-600">({{ $user->last_trip_lake }})</span>
+</div>
+```
+
+Add dynamic relationship:
+
+```php
+public function lastTrip()
+{
+    // In this case, laravel assumes that user's table has a column named last_trip_id
+    // we will make laravel believes that columns exists by using a subquery
+    return $this->belongsTo(Trip::class);
+}
+
+public function scopeWithLastTrip($query)
+{
+    $query->addSelect(['last_trip_id' => Trip::query()
+        ->select('id')
+        ->from('trips')
+        ->whereColumn('user_id', 'users.id')
+        ->latest('went_at')
+        ->limit(1)
+    ])->with('lastTrip');
+}
+```
+
+```php
+->withLastTrip()
+```
+
+```php
+<div class="w-1/3 px-3 py-4 text-gray-800">
+    <a class="hover:underline" href="/trips/{{ $user->lastTrip->id }}">
+        {{ $user->lastTrip->went_at->diffForHumans() }}
+    </a>
+    <span class="text-sm text-gray-600">({{ $user->lastTrip->lake }})</span>
+</div>
+```
